@@ -1,0 +1,73 @@
+import { Server } from "socket.io";
+import http from "http";
+import express from "express";
+
+
+const app = express();
+const server = http.createServer(app);
+
+
+const io = new Server(server, {
+  cors: {
+    origin: ["http://localhost:5173"],
+  },
+});
+
+export function getReceiverSocketId(userId) {
+  return userSocketMap[userId];
+}
+
+// used to store online users
+const userSocketMap = {}; // {userId: socketId}
+
+io.on("connection", (socket) => {
+  console.log("A user connected", socket.id);
+
+  const userId = socket.handshake.query.userId;
+  if (userId) userSocketMap[userId] = socket.id;
+
+ 
+
+   //io.emit() //is used to send events to all the connected clients
+  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  // ================== WEBRTC SIGNALING ==================
+
+  socket.on("call-user", ({ toUserId, offer }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+   console.log("call-user toUserId:", toUserId, "offer:", offer);
+    
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("incoming-call", {
+        fromUserId: userId,
+        offer,
+      });
+    }
+  });
+
+  socket.on("answer-call", ({ toUserId, answer }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("call-answered", { answer });
+    }
+  });
+
+  socket.on("ice-candidate", ({ toUserId, candidate }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("ice-candidate", candidate);
+    }
+  });
+
+  
+
+  socket.on("disconnect", () => {
+    console.log("A user disconnected", socket.id);
+    delete userSocketMap[userId];
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  });
+});
+
+export { io, app, server };

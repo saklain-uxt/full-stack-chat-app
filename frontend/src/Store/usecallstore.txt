@@ -1,0 +1,260 @@
+
+import { create } from "zustand";
+import { useAuthStore } from "./useAuthStore";
+
+
+ receiveCall2: async (fromUserId, offer) => {
+    set({
+      isReceiving: true,
+      incomingCaller: fromUserId, //  KEY LINE (UI FIX)
+      callUser: fromUserId,
+    });
+
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
+
+    localStream.getTracks().forEach((track) => {
+      peer.addTrack(track, localStream);
+    });
+
+    peer.ontrack = (event) => {
+      set({ remoteStream: event.streams[0] });
+    };
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        const socket = useAuthStore.getState().socket;
+        socket?.emit("ice-candidate", {
+          toUserId: fromUserId,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    await peer.setRemoteDescription(offer);
+
+    set({ peer, localStream });
+  },
+
+
+
+export const useCallStore = create((set, get) => ({
+  callUser: null,
+  isCalling: false,
+  isReceiving: false,
+  peer: null,
+  localStream: null,
+  remoteStream: null,
+
+  startCall: async (toUserId) => {
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
+
+    localStream.getTracks().forEach((track) => {
+      peer.addTrack(track, localStream);
+    });
+
+    peer.ontrack = (event) => {
+      set({ remoteStream: event.streams[0] });
+    };
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+            const socket = useAuthStore.getState().socket;
+        socket?.emit("ice-candidate", {
+          toUserId,
+          candidate: event.candidate,
+        });
+      }
+    };
+    console.log("🚀 startCall triggered");
+
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    console.log("📤 Emitting call-user", { toUserId, offer });
+    const socket = useAuthStore.getState().socket;
+
+    socket?.emit("call-user", { toUserId, offer });
+
+    set({
+      peer,
+      localStream,
+      callUser: toUserId,
+      isCalling: true,
+    });
+  },
+
+  receiveCall: async (fromUserId, offer) => {
+    set({ isReceiving: true, callUser: fromUserId });
+
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
+
+    localStream.getTracks().forEach((track) => {
+      peer.addTrack(track, localStream);
+    });
+
+    peer.ontrack = (event) => {
+      set({ remoteStream: event.streams[0] });
+    };
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+            const socket = useAuthStore.getState().socket;
+        socket?.emit("ice-candidate", {
+          toUserId: fromUserId,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    await peer.setRemoteDescription(offer);
+
+    set({ peer, localStream });
+  },
+
+  answerCall: async () => {
+    const { peer, callUser } = get();
+
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+      const socket = useAuthStore.getState().socket;
+
+    socket?.emit("answer-call", {
+      toUserId: callUser,
+      answer,
+    });
+
+    set({ isReceiving: false, isCalling: true });
+  },
+}));
+
+
+
+
+
+
+
+
+//usechatstore
+import { create } from "zustand";
+import toast from "react-hot-toast";
+import { axiosInstance } from "../lib/axios";
+import { useAuthStore } from "./useAuthStore";
+import { useCallStore } from "./useCallStore";
+
+export const useChatStore = create((set, get) => ({
+  messages: [],
+  users: [],
+  selectedUser: null,
+  isUsersLoading: false,
+  isMessagesLoading: false,
+  broadcasts:[],
+ 
+
+  
+
+
+  getUsers: async () => {
+    set({ isUsersLoading: true });
+    try {
+      const res = await axiosInstance.get("/messages/users");
+      set({ users: res.data });
+    } catch (error) {
+      toast.error(error.response.data.message);
+    } finally {
+      set({ isUsersLoading: false });
+    }
+  },
+
+  getMessages: async (userId) => {
+    set({ isMessagesLoading: true });
+    try {
+      const res = await axiosInstance.get(`/messages/${userId}`);
+      set({ messages: res.data });
+    } catch (error) {
+      toast.error(error.response.data.message);
+    } finally {
+      set({ isMessagesLoading: false });
+    }
+  },
+  sendMessage: async (messageData) => {
+    const { selectedUser, messages } = get();
+    try {
+      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
+      set({ messages: [...messages, res.data] });
+    } catch (error) {
+      toast.error(error.response.data.message);
+    }
+  },
+  getBroadcasts:async()=>{
+    const res=await axiosInstance.get('/messages/broadcasts');
+    set({broadcasts:res.data});
+
+  },
+
+   subscribeToMessages: () => {
+    const { selectedUser } = get();
+    if (!selectedUser) return;
+
+    const socket = useAuthStore.getState().socket;
+
+    socket.on("newMessage", (newMessage) => {
+      const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
+      if (!isMessageSentFromSelectedUser) return;
+
+      set({
+        messages: [...get().messages, newMessage],
+      });
+    });
+  },
+
+  subscribeToBroadcast: () => {
+  const socket = useAuthStore.getState().socket;
+
+  socket.on("receiveMessage", (message) => {
+    set({
+      messages: [...get().messages, message],
+    });
+  });
+},
+
+
+  unsubscribeFromMessages: () => {
+    const socket = useAuthStore.getState().socket;
+    socket.off("newMessage");
+    socket.off("receiveMessage");
+  },
+   setSelectedUser: (selectedUser) => set({ selectedUser }),
+
+  //  startVideoCall: () => set({ isVideoCallActive: true }),
+  //  endVideoCall: () => set({ isVideoCallActive: false }),
+  
+
+startVideoCall: () => {
+  const { selectedUser } = get();
+  if (!selectedUser) return;
+
+  useCallStore.getState().startCall(selectedUser._id);
+},
+
+
+}));

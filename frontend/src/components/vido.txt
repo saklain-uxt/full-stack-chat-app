@@ -1,0 +1,47 @@
+
+import { useEffect, useRef } from "react";
+import { useCallStore } from "../Store/useCallStore";
+import { useChatStore } from "../Store/useChatStore"; // 👈 ADD THIS
+
+const VideoCall = () => {
+  const { selectedUser } = useChatStore(); // 👈 THIS IS THE KEY
+
+  const {
+    localStream,
+    remoteStream,
+    isCalling,
+    isReceiving,
+    startCall,
+    answerCall,
+  } = useCallStore();
+
+  const localVideoRef = useRef();
+  const remoteVideoRef = useRef();
+
+  useEffect(() => {
+    if (localStream) localVideoRef.current.srcObject = localStream;
+    if (remoteStream) remoteVideoRef.current.srcObject = remoteStream;
+  }, [localStream, remoteStream]);
+
+  return (
+    <div>
+      {isReceiving && (
+        <div>
+          <p>Incoming call...</p>
+          <button onClick={answerCall}>Accept</button>
+        </div>
+      )}
+
+      <video ref={localVideoRef} autoPlay muted width="auto" />
+      <video ref={remoteVideoRef} autoPlay width="auto" />
+
+      {!isCalling && selectedUser && (
+        <button onClick={() => startCall(selectedUser._id)}>
+          Start Call
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default VideoCall;
