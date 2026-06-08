@@ -29,16 +29,22 @@ const Sidebar = () => {
 
   if (isUsersLoading) return <SidebarSkeleton />;
 
+  const sidebarClasses = isVideoCallActive
+    ? "hidden"
+    : selectedUser
+      ? "hidden lg:flex lg:w-72"
+      : "flex w-full lg:w-72";
+
   return (
-    <aside className={`h-full border-r border-base-300 flex flex-col transition-all duration-500 ease-in-out ${isVideoCallActive ? "w-0 opacity-0 border-r-0 pointer-events-none overflow-hidden lg:w-0" : "w-20 lg:w-72"}`}>
+    <aside className={`h-full border-r border-base-300 flex-col transition-all duration-500 ease-in-out ${sidebarClasses}`}>
       <div className="border-b border-base-300 w-full p-5">
         <div className="flex items-center gap-2">
           <Users className="size-6" />
-          <span className="font-medium hidden lg:block">Contacts</span>
+          <span className={`font-medium ${selectedUser ? "hidden lg:block" : ""}`}>Contacts</span>
         </div>
 
         {/* Online filter */}
-        <div className="mt-3 hidden lg:flex items-center gap-2">
+        <div className={`mt-3 items-center gap-2 ${selectedUser ? "hidden lg:flex" : "flex"}`}>
           <label className="cursor-pointer flex items-center gap-2">
             <input
               type="checkbox"
@@ -75,7 +81,7 @@ const Sidebar = () => {
                 }
               `}
             >
-              <div className="relative mx-auto lg:mx-0">
+              <div className={`relative ${selectedUser ? "mx-auto lg:mx-0" : "mx-0"}`}>
                 <img
                   src={user.profilePic || "/avatar.png"}
                   alt={user.fullName}
@@ -90,14 +96,14 @@ const Sidebar = () => {
                 )}
 
                 {userUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full size-4 flex items-center justify-center lg:hidden animate-pulse">
+                  <span className={`absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full size-4 flex items-center justify-center animate-pulse ${selectedUser ? "lg:hidden" : "hidden"}`}>
                     {userUnreadCount}
                   </span>
                 )}
               </div>
 
               {/* User info */}
-              <div className="hidden lg:flex flex-1 items-center justify-between min-w-0">
+              <div className={`flex-1 items-center justify-between min-w-0 ${selectedUser ? "hidden lg:flex" : "flex"}`}>
                 <div className="text-left min-w-0">
                   <div className="font-medium truncate">{user.fullName}</div>
                   <div className="text-sm text-zinc-400">

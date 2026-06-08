@@ -48,8 +48,11 @@ const ChatHeader = () => {
             </button>
           )}
 
-          <button onClick={() => setSelectedUser(null)}>
-            <X />
+          <button 
+            onClick={() => setSelectedUser(null)}
+            className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-base-content transition-colors"
+          >
+            <X className="size-5" />
           </button>
         </div>
       </div>

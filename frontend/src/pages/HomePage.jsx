@@ -13,8 +13,16 @@ const HomePage = () => {
 
   return (
     <div className="h-screen bg-base-200 overflow-hidden">
-      <div className={`flex items-center justify-center transition-all duration-500 ease-in-out relative ${isVideoCallActive ? "pt-0 px-0 h-screen w-screen z-50" : "pt-20 px-4 h-[calc(100vh-8rem)] z-0"}`}>
-        <div className={`bg-base-100 shadow-xl w-full h-full transition-all duration-500 ease-in-out ${isVideoCallActive ? "rounded-none max-w-none" : "rounded-lg max-w-[1600px]"}`}>
+      <div className={`flex items-center justify-center transition-all duration-500 ease-in-out relative ${
+        isVideoCallActive 
+          ? "pt-0 px-0 h-screen w-screen z-50" 
+          : "pt-16 px-0 h-[calc(100vh-4rem)] lg:pt-20 lg:px-4 lg:h-[calc(100vh-8rem)] z-0"
+      }`}>
+        <div className={`bg-base-100 shadow-xl w-full h-full transition-all duration-500 ease-in-out ${
+          isVideoCallActive 
+            ? "rounded-none max-w-none" 
+            : "rounded-none lg:rounded-lg max-w-[1600px]"
+        }`}>
           <div className="flex h-full overflow-hidden relative">
             <Sidebar />
 
