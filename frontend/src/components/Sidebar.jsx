@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useChatStore } from "../Store/useChatStore";
 import { useAuthStore } from "../Store/useAuthStore";
-
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users } from "lucide-react";
 
@@ -12,6 +11,8 @@ const Sidebar = () => {
     selectedUser,
     setSelectedUser,
     isUsersLoading,
+    notifications,
+    isVideoCallActive,
   } = useChatStore();
 
   const { onlineUsers, authUser } = useAuthStore();
@@ -29,7 +30,7 @@ const Sidebar = () => {
   if (isUsersLoading) return <SidebarSkeleton />;
 
   return (
-    <aside className="h-full w-20 lg:w-72 border-r border-base-300 flex flex-col transition-all duration-200">
+    <aside className={`h-full border-r border-base-300 flex flex-col transition-all duration-500 ease-in-out ${isVideoCallActive ? "w-0 opacity-0 border-r-0 pointer-events-none overflow-hidden lg:w-0" : "w-20 lg:w-72"}`}>
       <div className="border-b border-base-300 w-full p-5">
         <div className="flex items-center gap-2">
           <Users className="size-6" />
@@ -56,6 +57,9 @@ const Sidebar = () => {
       <div className="overflow-y-auto w-full py-3">
         {filteredUsers.map((user) => {
           const isOnline = onlineUsers.includes(user._id);
+          const userUnreadCount = notifications.filter(
+            (notif) => notif.senderId === user._id
+          ).length;
 
           return (
             <button
@@ -73,11 +77,7 @@ const Sidebar = () => {
             >
               <div className="relative mx-auto lg:mx-0">
                 <img
-                  src={
-                    user.profilePic
-                      ? `${user.profilePic}?t=${user._id === authUser?._id ? Date.now() : ""}`
-                      : "/avatar.png"
-                  }
+                  src={user.profilePic || "/avatar.png"}
                   alt={user.fullName}
                   className="size-12 object-cover rounded-full"
                 />
@@ -88,14 +88,27 @@ const Sidebar = () => {
                     rounded-full ring-2 ring-zinc-900"
                   />
                 )}
+
+                {userUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full size-4 flex items-center justify-center lg:hidden animate-pulse">
+                    {userUnreadCount}
+                  </span>
+                )}
               </div>
 
               {/* User info */}
-              <div className="hidden lg:block text-left min-w-0">
-                <div className="font-medium truncate">{user.fullName}</div>
-                <div className="text-sm text-zinc-400">
-                  {isOnline ? "Online" : "Offline"}
+              <div className="hidden lg:flex flex-1 items-center justify-between min-w-0">
+                <div className="text-left min-w-0">
+                  <div className="font-medium truncate">{user.fullName}</div>
+                  <div className="text-sm text-zinc-400">
+                    {isOnline ? "Online" : "Offline"}
+                  </div>
                 </div>
+                {userUnreadCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 ml-2 animate-pulse">
+                    {userUnreadCount}
+                  </span>
+                )}
               </div>
             </button>
           );
@@ -103,7 +116,7 @@ const Sidebar = () => {
 
         {filteredUsers.length === 0 && (
           <div className="text-center text-zinc-500 py-4">
-            No online users
+            No users
           </div>
         )}
       </div>
@@ -112,4 +125,3 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
-

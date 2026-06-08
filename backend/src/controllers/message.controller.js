@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
+import Notification from "../models/notification.model.js";
 import cloudinary from '../lib/cloudinary.js';
 import { io, getReceiverSocketId } from "../lib/socket.js";
 const BROADCAST_USER_ID = "6953535c9a153dff45687ddb";//dummy user id to broadcast messages
@@ -70,13 +71,20 @@ export const sendMessage = async (req, res) => {
       text,
      image: imageUrl,
      isBroadcast,
-      // senderId,
-      // receiverId,
-      // text,
-      // image: imageUrl,
     });
 
     await newMessage.save();
+
+    let notification = null;
+    if (!isBroadcast) {
+      notification = new Notification({
+        senderId,
+        receiverId,
+        messageId: newMessage._id,
+        isRead: false,
+      });
+      await notification.save();
+    }
 
     
 // emit
@@ -86,6 +94,9 @@ if (isBroadcast) {
   const receiverSocketId = getReceiverSocketId(receiverId);
   if (receiverSocketId) {
     io.to(receiverSocketId).emit("newMessage", newMessage);
+    if (notification) {
+      io.to(receiverSocketId).emit("newNotification", notification);
+    }
   }
 }
 
@@ -94,6 +105,37 @@ if (isBroadcast) {
     res.status(201).json(newMessage);
   } catch (error) {
     console.log("Error in sendMessage controller: ", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getNotifications = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const notifications = await Notification.find({
+      receiverId: userId,
+      isRead: false,
+    }).sort({ createdAt: 1 });
+    res.status(200).json(notifications);
+  } catch (error) {
+    console.log("Error in getNotifications controller: ", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const markNotificationsRead = async (req, res) => {
+  try {
+    const { senderId } = req.params;
+    const myId = req.user._id;
+
+    await Notification.updateMany(
+      { receiverId: myId, senderId, isRead: false },
+      { isRead: true }
+    );
+
+    res.status(200).json({ message: "Notifications marked as read" });
+  } catch (error) {
+    console.log("Error in markNotificationsRead controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

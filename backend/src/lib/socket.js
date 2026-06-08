@@ -11,45 +11,68 @@ const io = new Server(server, {
   },
 });
 
-// ================== ONLINE USERS ==================
 const userSocketMap = {}; // { userId: socketId }
 
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
 }
 
+
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
 
   const userId = socket.handshake.query.userId;
-  socket.userId = userId; // ✅ STORE USER ID ON SOCKET
+  socket.userId = userId;
 
   if (userId) userSocketMap[userId] = socket.id;
 
-  // 🔹 CHAT FEATURE (UNCHANGED)
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // ================== VIDEO CALL SIGNALING ==================
+  socket.on("call-user", ({ toUserId, offer }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+    if (!receiverSocketId) {
+      socket.emit("call-unavailable", { toUserId });
+      return;
+    }
 
-  //  CALLER clicks START
+    io.to(receiverSocketId).emit("incoming-call", {
+      fromUserId: userId,
+      offer,
+    });
+  });
+
+  socket.on("answer-call", ({ toUserId, answer }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("call-answered", {
+        fromUserId: userId,
+        answer,
+      });
+    }
+  });
+
+  socket.on("end-call", ({ toUserId }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("call-ended", { fromUserId: userId });
+    }
+  });
+
+  socket.on("ice-candidate", ({ toUserId, candidate }) => {
+    const receiverSocketId = getReceiverSocketId(toUserId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("ice-candidate", {
+        fromUserId: userId,
+        candidate,
+      });
+    }
+  });
 
 
-  //  RECEIVER clicks ACCEPT
- 
-
-  //End Call
- 
-
-  //  ICE CANDIDATES (UNCHANGED)
- 
-
-  // ================== DISCONNECT ==================
   socket.on("disconnect", () => {
     console.log("A user disconnected", socket.id);
 
     delete userSocketMap[userId];
-
-    // 🔹 CHAT FEATURE (UNCHANGED)
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });

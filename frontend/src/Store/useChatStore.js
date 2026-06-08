@@ -11,6 +11,7 @@ export const useChatStore = create((set, get) => ({
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
+  notifications: [],
 
   // 🔥 Video UI control
   isVideoCallActive: false,
@@ -59,7 +60,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get("/messages/broadcasts");
       set({ broadcasts: res.data });
-    } catch (error) {
+    } catch {
       toast.error("Failed to load broadcasts");
     }
   },
@@ -106,11 +107,14 @@ export const useChatStore = create((set, get) => ({
 
   // ================== UI ==================
   setSelectedUser: (selectedUser) =>{
-    const currentuser=get.selectedUser;
-    if(currentuser && currentuser._id===selectedUser._id){
+    const currentUser = get().selectedUser;
+    if(currentUser && selectedUser && currentUser._id===selectedUser._id){
       return;
     }
 
+    if (selectedUser) {
+      get().markNotificationsAsRead(selectedUser._id);
+    }
    
     set({
       selectedUser,
@@ -119,6 +123,55 @@ export const useChatStore = create((set, get) => ({
     })},
 
   setVideoCallActive:(value)=>set({ isVideoCallActive:value}),
+
+  // ================== NOTIFICATIONS ==================
+  getNotifications: async () => {
+    try {
+      const res = await axiosInstance.get("/messages/notifications");
+      set({ notifications: res.data });
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  },
+
+  markNotificationsAsRead: async (senderId) => {
+    try {
+      await axiosInstance.put(`/messages/notifications/read/${senderId}`);
+      set({
+        notifications: get().notifications.filter(
+          (notif) => notif.senderId !== senderId
+        ),
+      });
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+    }
+  },
+
+  subscribeToNotifications: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    // Fetch initial unread notifications from DB on connection
+    get().getNotifications();
+
+    socket.off("newNotification"); // prevent duplicates
+
+    socket.on("newNotification", (notification) => {
+      const { selectedUser } = get();
+      // If we are currently chatting with the sender, mark it read immediately
+      if (selectedUser && notification.senderId === selectedUser._id) {
+        axiosInstance.put(`/messages/notifications/read/${notification.senderId}`).catch(console.error);
+        return;
+      }
+      set({ notifications: [...get().notifications, notification] });
+    });
+  },
+
+  unsubscribeFromNotifications: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+    socket.off("newNotification");
+  },
 
    
 
